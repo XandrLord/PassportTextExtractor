@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Results</title>
+</head>
+<body>
+    <h1>Results</h1>
+    <div>
+        <h2>Processed Images</h2>
+        {% for image in images %}
+            <div>
+                <img src="{{ url_for('download_file', filename=image) }}" alt="Processed Image">
+            </div>
+        {% endfor %}
+    </div>
+    <div>
+        <h2>Result Text</h2>
+        <p>{{ text }}</p>
+    </div>
+    <div>
+        <h2>JSON Data</h2>
+        <pre>{{ json_data | tojson }}</pre>
+    </div>
+    <a href="{{ url_for('index') }}">Back to Home</a>
+</body>
+</html>

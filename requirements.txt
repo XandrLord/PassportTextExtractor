@@ -11,6 +11,7 @@ opencv-python
 paddlepaddle
 paddleocr
 ultralytics
+pillow
 
 # Specific version of torchvision with a specific URL
 -f https://download.pytorch.org/whl/torch_stable.html
