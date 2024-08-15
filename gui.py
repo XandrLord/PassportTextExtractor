@@ -6,6 +6,7 @@ import math
 from image_processor import process_image_app, data, clean_folder
 import json
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 class ImageProcessor:
     def __init__(self, root):
