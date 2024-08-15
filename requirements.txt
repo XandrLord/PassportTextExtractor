@@ -12,6 +12,8 @@ paddlepaddle
 paddleocr
 ultralytics
 pillow
+flask
+werkzeug
 
 # Specific version of torchvision with a specific URL
 -f https://download.pytorch.org/whl/torch_stable.html
