@@ -1,11 +1,3 @@
-# Index URL for PyTorch packages
---index-url https://download.pytorch.org/whl/cu121
-
-# Install torch and torchaudio from the specific index URL
-torch
-torchaudio
-
-# Additional dependencies
 numpy
 opencv-python
 paddlepaddle
@@ -14,12 +6,12 @@ ultralytics
 pillow
 flask
 werkzeug
-shutil
-tkinter
-os
-json
-math
+
+# Index URL for PyTorch packages
+-f https://download.pytorch.org/whl/cu121
+torch
+torchaudio
 
 # Specific version of torchvision with a specific URL
 -f https://download.pytorch.org/whl/torch_stable.html
-torchvision==0.16.0+cu121
+torchvision==0.18.0+cu121
