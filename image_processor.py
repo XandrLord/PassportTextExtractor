@@ -9,6 +9,10 @@ from paddleocr import PaddleOCR
 data = {}
 bins = np.arange(0, 181, 5)
 
+model_pass = YOLO("best_pass.pt")
+model_txt = YOLO("best_txt.pt")
+model_ud = YOLO("best_ud.pt")
+
 def calculate_angle_and_centers(src_pts: np.ndarray) -> tuple:
     """
     Вычисляет угол и центры сторон прямоугольника.
@@ -64,32 +68,28 @@ def recalculate_dst_pts(src_pts: np.ndarray, image_shape: tuple) -> tuple:
     dst_pts = np.array([[0, 0], [new_width - 1, 0], [new_width - 1, new_height - 1], [0, new_height - 1]], dtype='float32')
     return dst_pts, (new_width, new_height)
 
-def process_image(image_path: str, base_dir: str, output_dir: str) -> None:
+def process_image(image_path: str, output_dir: str) -> None:
     """
     Обрабатывает изображение, выполняя его трансформацию и распознавание текста.
 
     :param image_path: Путь к изображению.
-    :param base_dir: Базовая директория для хранения данных.
     :param output_dir: Директория для сохранения выходных данных.
     """
     experiment = os.path.splitext(os.path.basename(image_path))[0]
     image_output_dir = os.path.join(output_dir, experiment)
     os.makedirs(image_output_dir, exist_ok=True)
 
-    model = YOLO('best_pass.pt')
-    model.predict(source=image_path, show=False, conf=0.5, save=True, save_txt=True, name=experiment)
+    results_pass = model_pass(image_path)
 
     try:
-        coords_path = os.path.join(base_dir, 'segment', experiment, 'labels', f'{experiment}.txt')
         image = cv2.imread(image_path)
         height, width = image.shape[:2]
 
-        with open(coords_path, 'r') as file:
-            lines = file.readlines()
+        lines = results_pass[0].get_txt_without_file()
 
         text = ''
-        counter = -1
-        for idx, line in enumerate(lines):
+        counter = 0
+        for line in lines:
             counter += 1
             parts = line.strip().split(' ')
             coords = [(float(parts[i]), float(parts[i + 1])) for i in range(1, len(parts), 2)]
@@ -110,18 +110,14 @@ def process_image(image_path: str, base_dir: str, output_dir: str) -> None:
             M = cv2.getPerspectiveTransform(src_pts, dst_pts)
             transformed_image = cv2.warpPerspective(image, M, new_size)
 
-            model_txt = YOLO('best_txt.pt')
-            model_txt.predict(source=transformed_image, show=False, conf=0.3, save=True, save_txt=True, name=experiment + '_txt_' + str(counter))
-
+            results_txt = model_txt(transformed_image)
             try:
-                txt_coords_path = os.path.join(base_dir, 'segment', experiment + '_txt_' + str(counter), 'labels', 'image0.txt')
                 height_txt, width_txt = transformed_image.shape[:2]
 
-                with open(txt_coords_path, 'r') as file_txt:
-                    lines_txt = file_txt.readlines()
+                lines_txt = results_txt[0].get_txt_without_file()
 
                 angles = []
-                for idx_txt, line_txt in enumerate(lines_txt):
+                for line_txt in lines_txt:
                     parts_txt = line_txt.strip().split(' ')
                     coords_txt = [(float(parts_txt[i]), float(parts_txt[i + 1])) for i in range(1, len(parts_txt), 2)]
                     if not coords_txt:
@@ -154,20 +150,14 @@ def process_image(image_path: str, base_dir: str, output_dir: str) -> None:
 
                 transformed_image = rotate_all(transformed_image, -average_angle)
 
-                shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_txt_' + str(counter)))
-
-                model_txt = YOLO('best_ud.pt')
-                model_txt.predict(source=transformed_image, show=False, conf=0.3, save=True, save_txt=True, name=experiment + '_ud_' + str(counter))
+                results_ud = model_ud(transformed_image)
 
                 try:
-                    ud_txt = os.path.join(base_dir, 'segment', experiment + '_ud_' + str(counter), 'labels', 'image0.txt')
-
-                    with open(ud_txt, 'r') as file_ud:
-                        lines_ud = file_ud.readlines()
+                    lines_ud = results_ud[0].get_txt_without_file()
 
                     up_count = 0
                     down_count = 0
-                    for idx_ud, line_ud in enumerate(lines_ud):
+                    for line_ud in lines_ud:
                         classn = line_ud[0]
 
                         if classn == '0':
@@ -178,9 +168,7 @@ def process_image(image_path: str, base_dir: str, output_dir: str) -> None:
                     if down_count > up_count:
                         transformed_image = rotate_all(transformed_image, 180)
 
-                    shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_ud_' + str(counter)))
-
-                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{idx}.png')
+                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                     cv2.imwrite(output_path_transformed, transformed_image)
 
                     text += recognize_text_with_paddleocr(transformed_image)
@@ -188,8 +176,7 @@ def process_image(image_path: str, base_dir: str, output_dir: str) -> None:
 
                 except Exception as e:
                     print(e)
-                    shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_ud_' + str(counter)))
-                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{idx}.png')
+                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                     cv2.imwrite(output_path_transformed, transformed_image)
                     data[os.path.basename(image_path)] = {
                         'original_name': os.path.basename(image_path),
@@ -198,8 +185,7 @@ def process_image(image_path: str, base_dir: str, output_dir: str) -> None:
 
             except Exception as e:
                 print(e)
-                shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_txt_' + str(counter)))
-                output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{idx}.png')
+                output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                 cv2.imwrite(output_path_transformed, transformed_image)
                 data[os.path.basename(image_path)] = {
                     'original_name': os.path.basename(image_path),
@@ -219,22 +205,19 @@ def process_image(image_path: str, base_dir: str, output_dir: str) -> None:
             'transformed_image_path': '',
         }
 
-    # Очистка папки segment, кроме папок trainN
-    clean_segment_folder(base_dir)
-
-def clean_segment_folder(base_dir: str):
-    """
-    Очищает папку segment, кроме папок, начинающихся с 'train'.
-
-    :param base_dir: Базовая директория.
-    """
-    segment_path = os.path.join(base_dir, 'segment')
-    for item in os.listdir(segment_path):
-        item_path = os.path.join(segment_path, item)
-        if os.path.isdir(item_path) and not item.startswith('train'):
-            shutil.rmtree(item_path)
-        elif os.path.isfile(item_path):
-            os.remove(item_path)
+# def clean_segment_folder(base_dir: str):
+#     """
+#     Очищает папку segment, кроме папок, начинающихся с 'train'.
+#
+#     :param base_dir: Базовая директория.
+#     """
+#     segment_path = os.path.join(base_dir, 'segment')
+#     for item in os.listdir(segment_path):
+#         item_path = os.path.join(segment_path, item)
+#         if os.path.isdir(item_path) and not item.startswith('train'):
+#             shutil.rmtree(item_path)
+#         elif os.path.isfile(item_path):
+#             os.remove(item_path)
 
 def clean_folder(dir: str):
     """
@@ -249,12 +232,11 @@ def clean_folder(dir: str):
         elif os.path.isfile(item_path):
             os.remove(item_path)
 
-def process_images_in_folder(folder_path: str, base_dir: str, output_dir: str) -> None:
+def process_images_in_folder(folder_path: str, output_dir: str) -> None:
     """
     Обрабатывает все изображения в указанной папке.
 
     :param folder_path: Путь к папке с изображениями.
-    :param base_dir: Базовая директория для хранения данных.
     :param output_dir: Директория для сохранения выходных данных.
     """
     image_files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
@@ -262,7 +244,7 @@ def process_images_in_folder(folder_path: str, base_dir: str, output_dir: str) -
     for image_file in image_files:
         if image_file.endswith(('.png', '.jpg', '.jpeg', '.bmp')):
             image_path = os.path.join(folder_path, image_file)
-            process_image(image_path, base_dir, output_dir)
+            process_image(image_path, output_dir)
 
 def rotate_all(img: np.ndarray, angle: float) -> np.ndarray:
     """
@@ -306,15 +288,14 @@ def recognize_text_with_paddleocr(image: np.ndarray) -> str:
     text_res = text_res.strip()
     return text_res
 
-def process_image_app(image_path: str, base_dir: str):
+def process_image_app(image_path: str):
     """
     Обрабатывает изображение, выполняя его трансформацию и распознавание текста.
 
     :param image_path: Путь к изображению.
-    :param base_dir: Базовая директория для хранения данных.
     """
 
-    output_dir = os.path.join(os.path.dirname(base_dir), 'passport_text_executor')
+    output_dir = os.path.join('pte_res')
 
     experiment = os.path.splitext(os.path.basename(image_path))[0]
     image_output_dir = os.path.join(output_dir, experiment)
@@ -328,20 +309,17 @@ def process_image_app(image_path: str, base_dir: str):
         # Создание папки, если она не существует
         os.makedirs(image_output_dir, exist_ok=True)
 
-    model = YOLO('best_pass.pt')
-    model.predict(source=image_path, show=False, conf=0.5, save=True, save_txt=True, name=experiment)
+    results_pass = model_pass(image_path)
 
     try:
-        coords_path = os.path.join(base_dir, 'segment', experiment, 'labels', f'{experiment}.txt')
         image = cv2.imread(image_path)
         height, width = image.shape[:2]
 
-        with open(coords_path, 'r') as file:
-            lines = file.readlines()
+        lines = results_pass[0].get_txt_without_file()
 
         text = ''
-        counter = -1
-        for idx, line in enumerate(lines):
+        counter = 0
+        for line in lines:
             counter += 1
             parts = line.strip().split(' ')
             coords = [(float(parts[i]), float(parts[i + 1])) for i in range(1, len(parts), 2)]
@@ -362,18 +340,15 @@ def process_image_app(image_path: str, base_dir: str):
             M = cv2.getPerspectiveTransform(src_pts, dst_pts)
             transformed_image = cv2.warpPerspective(image, M, new_size)
 
-            model_txt = YOLO('best_txt.pt')
-            model_txt.predict(source=transformed_image, show=False, conf=0.3, save=True, save_txt=True, name=experiment + '_txt_' + str(counter))
+            results_txt = model_txt(transformed_image)
 
             try:
-                txt_coords_path = os.path.join(base_dir, 'segment', experiment + '_txt_' + str(counter), 'labels', 'image0.txt')
                 height_txt, width_txt = transformed_image.shape[:2]
 
-                with open(txt_coords_path, 'r') as file_txt:
-                    lines_txt = file_txt.readlines()
+                lines_txt = results_txt[0].get_txt_without_file()
 
                 angles = []
-                for idx_txt, line_txt in enumerate(lines_txt):
+                for line_txt in lines_txt:
                     parts_txt = line_txt.strip().split(' ')
                     coords_txt = [(float(parts_txt[i]), float(parts_txt[i + 1])) for i in range(1, len(parts_txt), 2)]
                     if not coords_txt:
@@ -406,20 +381,14 @@ def process_image_app(image_path: str, base_dir: str):
 
                 transformed_image = rotate_all(transformed_image, -average_angle)
 
-                shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_txt_' + str(counter)))
-
-                model_txt = YOLO('best_ud.pt')
-                model_txt.predict(source=transformed_image, show=False, conf=0.3, save=True, save_txt=True, name=experiment + '_ud_' + str(counter))
+                results_ud = model_ud(transformed_image)
 
                 try:
-                    ud_txt = os.path.join(base_dir, 'segment', experiment + '_ud_' + str(counter), 'labels', 'image0.txt')
-
-                    with open(ud_txt, 'r') as file_ud:
-                        lines_ud = file_ud.readlines()
+                    lines_ud = results_ud[0].get_txt_without_file()
 
                     up_count = 0
                     down_count = 0
-                    for idx_ud, line_ud in enumerate(lines_ud):
+                    for line_ud in lines_ud:
                         classn = line_ud[0]
 
                         if classn == '0':
@@ -430,9 +399,7 @@ def process_image_app(image_path: str, base_dir: str):
                     if down_count > up_count:
                         transformed_image = rotate_all(transformed_image, 180)
 
-                    shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_ud_' + str(counter)))
-
-                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{idx}.png')
+                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                     cv2.imwrite(output_path_transformed, transformed_image)
 
                     text += recognize_text_with_paddleocr(transformed_image)
@@ -440,8 +407,7 @@ def process_image_app(image_path: str, base_dir: str):
 
                 except Exception as e:
                     print(e)
-                    shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_ud_' + str(counter)))
-                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{idx}.png')
+                    output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                     cv2.imwrite(output_path_transformed, transformed_image)
                     data[os.path.basename(image_path)] = {
                         'original_name': os.path.basename(image_path),
@@ -450,8 +416,7 @@ def process_image_app(image_path: str, base_dir: str):
 
             except Exception as e:
                 print(e)
-                shutil.rmtree(os.path.join(base_dir, 'segment', experiment + '_txt_' + str(counter)))
-                output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{idx}.png')
+                output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                 cv2.imwrite(output_path_transformed, transformed_image)
                 data[os.path.basename(image_path)] = {
                     'original_name': os.path.basename(image_path),
@@ -470,6 +435,3 @@ def process_image_app(image_path: str, base_dir: str):
             'original_name': os.path.basename(image_path),
             'transformed_image_dir': '',
         }
-
-    # Очистка папки segment, кроме папок trainN
-    clean_segment_folder(base_dir)

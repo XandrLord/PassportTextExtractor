@@ -1,11 +1,13 @@
 import os
 import shutil
-from tkinter import Tk, Frame, Button, Label, filedialog, Scrollbar, Canvas, Entry, Text
+from tkinter import Tk, Frame, Button, Label, filedialog, Scrollbar, Canvas, Text
 from PIL import Image, ImageTk
 import math
-from image_processor import process_image_app, data, clean_folder
+from image_processor import process_image_app, data
 import json
+import ctypes
 
+ctypes.windll.shcore.SetProcessDpiAwareness(True)
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 class ImageProcessor:
@@ -14,16 +16,11 @@ class ImageProcessor:
         self.root.title("Image Processing App")
 
         # Кнопки
-        self.btn_select = Button(root, text="Выбрать изображение", state='disabled', command=self.select_image)
+        self.btn_select = Button(root, text="Выбрать изображение", command=self.select_image)
         self.btn_select.grid(row=0, column=0, padx=10, pady=10)
 
         self.btn_save = Button(root, text="Скачать результат", command=self.save_result)
         self.btn_save.grid(row=0, column=1, padx=10, pady=10)
-
-        # Поле ввода текста
-        self.entry = Entry(root, width=50)
-        self.entry.grid(row=0, column=2, padx=10, pady=10)
-        self.entry.bind("<KeyRelease>", self.check_entry)
 
         # Поле для вывода текста
         self.text_output = Text(root, height=30, width=50)
@@ -76,8 +73,7 @@ class ImageProcessor:
                                                      filetypes=[("Image Files", "*.png;*.jpg;*.jpeg")])
         if self.image_path:
             self.display_image(self.image_path, self.label1)
-            self.user_input = self.entry.get()
-            self.result_images, self.result_text, self.result_data = self.process_images(self.image_path, self.user_input)
+            self.result_images, self.result_text, self.result_data = self.process_images(self.image_path)
             self.json_dir = os.path.join(self.user_input, 'passport_text_executor')
 
             # Сохраняем данные в формате JSON
@@ -130,9 +126,9 @@ class ImageProcessor:
         frame.update_idletasks()
         self.canvas2.configure(scrollregion=self.canvas2.bbox("all"))
 
-    def process_images(self, current_photo, base_dir):
+    def process_images(self, current_photo):
         # Вызов process_image_app для текущего фото
-        process_image_app(current_photo, base_dir)
+        process_image_app(current_photo)
 
         # Найти ключ в data, соответствующий current_photo
         photo_name = os.path.basename(current_photo)
@@ -174,5 +170,3 @@ if __name__ == "__main__":
     root = Tk()
     app = ImageProcessor(root)
     root.mainloop()
-
-# c:\users\alexandr\runs
