@@ -24,7 +24,7 @@ C:\Users\Пользователь\PycharmProjects\SMTH\venv\Lib\site-packages\ul
 
 ### **Добавление API-ключа для Llama**
 
-Требуется добавить API-ключ для Llama (получаемый на сайте https://build.nvidia.com/meta/llama3-70b) в api_key.
+Требуется добавить API-ключ для Llama (получаемый на сайте https://build.nvidia.com/meta/llama3-70b) в api_key.py.
 
 ## **Запуск версии программы с GUI через терминал**
 
