@@ -141,20 +141,16 @@ class ImageProcessor:
         photo_name = os.path.basename(current_photo)
 
         if photo_name in data:
-            # Найти text и transformed_image_dir
-            text = data[photo_name]['text']
-            transformed_image_dir = data[photo_name]['transformed_image_dir']
+            text = data[photo_name].get('llama_texts', [])
+            transformed_image_dir = data[photo_name].get('transformed_image_path', '')
 
             # Создать массив путей ко всем фото в директории transformed_image_dir
             if os.path.exists(transformed_image_dir) and os.path.isdir(transformed_image_dir):
                 all_photos = [os.path.join(transformed_image_dir, file) for file in os.listdir(transformed_image_dir) if
                               os.path.isfile(os.path.join(transformed_image_dir, file))]
-
                 return all_photos, text, data[photo_name]
-
             else:
                 return [], text, data[photo_name]
-
         else:
             return [], '', {}
 

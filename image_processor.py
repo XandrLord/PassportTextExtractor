@@ -1,9 +1,12 @@
 import os
 import cv2
 import shutil
+from openai import OpenAI
 import numpy as np
 from ultralytics import YOLO
 from paddleocr import PaddleOCR
+from api_key import api_key
+import json
 
 # Глобальные переменные
 data = {}
@@ -12,6 +15,11 @@ bins = np.arange(0, 181, 5)
 model_pass = YOLO("best_pass.pt")
 model_txt = YOLO("best_txt.pt")
 model_ud = YOLO("best_ud.pt")
+
+client = OpenAI(
+  base_url="https://integrate.api.nvidia.com/v1",
+  api_key=api_key
+)
 
 def calculate_angle_and_centers(src_pts: np.ndarray) -> tuple:
     """
@@ -88,6 +96,7 @@ def process_image(image_path: str, output_dir: str) -> None:
         lines = results_pass[0].get_txt_without_file()
 
         text = ''
+        original_text = ''
         counter = 0
         for line in lines:
             counter += 1
@@ -171,7 +180,24 @@ def process_image(image_path: str, output_dir: str) -> None:
                     output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                     cv2.imwrite(output_path_transformed, transformed_image)
 
-                    text += recognize_text_with_paddleocr(transformed_image)
+                    unworked_text = recognize_text_with_paddleocr(transformed_image)
+
+                    original_text += unworked_text
+                    original_text += '           '
+
+                    completion = client.chat.completions.create(
+                        model="meta/llama3-70b-instruct",
+                        messages=[{"role": "user", "content": f"I need only json-format data (!and no more words from you!) from this passport text I got with OCR: {unworked_text}"}],
+                        temperature=0.5,
+                        top_p=1,
+                        max_tokens=1024,
+                        stream=True
+                    )
+
+                    for chunk in completion:
+                        if chunk.choices[0].delta.content is not None:
+                            text += chunk.choices[0].delta.content
+
                     text += '           '
 
                 except Exception as e:
@@ -192,10 +218,14 @@ def process_image(image_path: str, output_dir: str) -> None:
                     'transformed_image_path': output_path_transformed,
                 }
 
+        texts = text.split('           ')
+        text_dicts = [json.loads(t) for t in texts if t.strip()]
+
         data[os.path.basename(image_path)] = {
             'original_name': os.path.basename(image_path),
             'transformed_image_path': output_path_transformed,
-            'text': text[:-11]
+            'original_text': original_text[:-11],
+            'llama_texts': text_dicts
         }
 
     except Exception as e:
@@ -318,6 +348,7 @@ def process_image_app(image_path: str):
         lines = results_pass[0].get_txt_without_file()
 
         text = ''
+        original_text = ''
         counter = 0
         for line in lines:
             counter += 1
@@ -402,7 +433,25 @@ def process_image_app(image_path: str):
                     output_path_transformed = os.path.join(image_output_dir, f'{experiment}_profile_view_{counter}.png')
                     cv2.imwrite(output_path_transformed, transformed_image)
 
-                    text += recognize_text_with_paddleocr(transformed_image)
+                    unworked_text = recognize_text_with_paddleocr(transformed_image)
+
+                    original_text += unworked_text
+                    original_text += '           '
+
+                    completion = client.chat.completions.create(
+                        model="meta/llama3-70b-instruct",
+                        messages=[{"role": "user",
+                                   "content": f"I need only json-format data (!and no more words from you!) from this passport text I got with OCR: {unworked_text}"}],
+                        temperature=0.5,
+                        top_p=1,
+                        max_tokens=1024,
+                        stream=True
+                    )
+
+                    for chunk in completion:
+                        if chunk.choices[0].delta.content is not None:
+                            text += chunk.choices[0].delta.content
+
                     text += '           '
 
                 except Exception as e:
@@ -423,10 +472,14 @@ def process_image_app(image_path: str):
                     'transformed_image_dir': image_output_dir,
                 }
 
+        texts = text.split('           ')
+        text_dicts = [json.loads(t) for t in texts if t.strip()]
+
         data[os.path.basename(image_path)] = {
             'original_name': os.path.basename(image_path),
-            'transformed_image_dir': image_output_dir,
-            'text': text[:-11]
+            'transformed_image_path': image_output_dir,
+            'original_text': original_text[:-11],
+            'llama_texts': text_dicts
         }
 
     except Exception as e:
