@@ -41,7 +41,7 @@ python app.py
 Общий формат команды
 
 ```
-python main.py <тип обработки (folder - папка, image - одно изображение)> <системная папка YOLO> <путь к данным (к папке/к фото) для обработки> <путь к папке, где будут обработанные изображения> <путь к папке для сохранения json>
+python main.py <тип обработки (folder - папка, image - одно изображение)> <путь к данным (к папке/к фото) для обработки> <путь к папке, где будут обработанные изображения> <путь к папке для сохранения json>
 ```
 
 ### **Примеры использования**
@@ -49,13 +49,13 @@ python main.py <тип обработки (folder - папка, image - одно
 Обработка одного изображения
 
 ```
-python main.py image <base_dir> <image_path> <output_dir> <json_output_path>
+python main.py image <image_path> <output_dir> <json_output_path>
 ```
 
 Обработка всех изображений в папке
 
 ```
-python main.py folder <base_dir> <folder_path> <output_dir> <json_output_path>
+python main.py folder <folder_path> <output_dir> <json_output_path>
 ```
 
 ### **Конкретные примеры**
@@ -63,13 +63,13 @@ python main.py folder <base_dir> <folder_path> <output_dir> <json_output_path>
 Обработка одного изображения
 
 ```
-python main.py image c:\users\alexandr\runs C:\Users\Alexandr\Downloads\test1.jpg C:\Users\Alexandr\Downloads C:\Users\Alexandr\Downloads\test.json
+python main.py image C:\Users\Alexandr\Downloads\test1.jpg C:\Users\Alexandr\Downloads C:\Users\Alexandr\Downloads\test.json
 ```
 
 Обработка всех изображений в папке
 
 ```
-python main.py folder c:\users\alexandr\runs C:\Users\Alexandr\Downloads C:\Users\Alexandr\Downloads C:\Users\Alexandr\Downloads\test.json
+python main.py folder C:\Users\Alexandr\Downloads C:\Users\Alexandr\Downloads C:\Users\Alexandr\Downloads\test.json
 ```
 
 ## **Ограничения использования**
