@@ -57,7 +57,7 @@ class ImageProcessor:
         self.image_path = None
         self.result_images = {}
         self.result_text = ''
-        self.user_input = ''
+        self.json_file_path = ''
 
     def check_entry(self, event):
         if self.entry.get().strip():
@@ -74,10 +74,17 @@ class ImageProcessor:
         if self.image_path:
             self.display_image(self.image_path, self.label1)
             self.result_images, self.result_text, self.result_data = self.process_images(self.image_path)
-            self.json_dir = os.path.join(self.user_input, 'passport_text_executor')
+
+            self.project_dir = os.path.dirname(os.path.abspath(__file__))
+            self.target_dir = os.path.join(self.project_dir, 'pte_res')
+
+            if not os.path.exists(self.target_dir):
+                os.makedirs(self.target_dir)
+
+            self.json_file_path = os.path.join(self.project_dir, 'pte_res', 'result_data.json')
 
             # Сохраняем данные в формате JSON
-            with open(os.path.join(os.path.join(os.path.dirname(self.user_input), 'passport_text_executor'), 'result_data.json'), 'w', encoding='utf-8') as json_file:
+            with open(self.json_file_path, 'w', encoding='utf-8') as json_file:
                 json.dump(self.result_data, json_file, ensure_ascii=False, indent=4)
 
             self.display_images(self.result_images, self.frame2)
